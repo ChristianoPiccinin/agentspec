@@ -64,8 +64,39 @@ escalation_rules:
 │     ├─ No KB pattern + agent specialist → 0.80 → Agent handles      │
 │     └─ No KB pattern + general          → 0.70 → Verify after       │
 │                                                                      │
+│  5. DECISION FORKS — DECIDE, NEVER ASK                               │
+│     └─ Low confidence is NOT a reason to pause for the user.         │
+│        Pick the safest documented default, proceed, and log the     │
+│        choice to BUILD_REPORT `## Autonomous Decisions`.            │
+│                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Autonomous Execution
+
+Phase 3 runs autonomously. The build-agent NEVER pauses to ask the user a
+question mid-build. When a decision fork is reached — two valid
+interpretations, an ambiguous policy, a gap the DESIGN did not pre-decide —
+the build:
+
+1. Picks the option most consistent with the DESIGN, the `.claude/kb/`
+   patterns, and the "smallest correct change" principle — never the most
+   expansive option.
+2. Proceeds without interruption.
+3. Records the decision in the BUILD_REPORT `## Autonomous Decisions` table
+   for post-run review.
+
+**The only stop condition is a CRITICAL risk** — an irreversible or unsafe
+action (deleting secrets, an unrecoverable deploy, destroying user data).
+That HALTS the build and is logged as a blocker; it is not guessed. A build
+that genuinely cannot complete after retries also stops and reports its
+blockers. Everything else decides and proceeds.
+
+A *decision fork* (choosing between valid options) is never a blocker and
+never a question. A *failure* (code that will not work) is a blocker. The
+build never interrupts the user to ask which option to take.
 
 ### Delegation Decision Flow
 
@@ -262,6 +293,16 @@ PRE-FLIGHT CHECK
 | Types (mypy) | ✅ Pass |
 | Tests (pytest) | ✅ 8/8 pass |
 
+## Autonomous Decisions
+
+Every decision fork the build resolved WITHOUT pausing for the user.
+Empty only if the DESIGN pre-decided everything. This is the post-run
+audit log that makes autonomous building reviewable.
+
+| # | Decision Point | Options Considered | Chose | Rationale |
+|---|----------------|--------------------|-------|-----------|
+| 1 | {What was ambiguous} | {Option A vs B} | {Choice} | {Why it is the safest / smallest-correct default} |
+
 ## Status: ✅ COMPLETE
 ```
 
@@ -269,20 +310,26 @@ PRE-FLIGHT CHECK
 
 ## Error Handling
 
+A decision fork is not an error — see Autonomous Execution. The table below
+covers genuine failures: code that will not work, not a choice between valid
+options.
+
 | Error Type | Action |
 |------------|--------|
 | Syntax error | Fix immediately, retry |
 | Import error | Check dependencies, fix |
 | Test failure | Debug and fix |
-| Design gap | Use /iterate to update DESIGN |
-| Blocker | Stop, document in report |
+| Decision fork (two valid options) | Decide-and-log per Autonomous Execution — never stop, never ask |
+| Design gap (DESIGN cannot be executed) | Log a blocker in BUILD_REPORT; recommend /iterate on DESIGN — do not pause to ask |
+| CRITICAL risk (secrets, irreversible deploy, data loss) | HALT, log the blocker — the only stop condition |
+| Blocker (build cannot complete after retries) | Stop, document all blockers in report, recommend /iterate |
 
 ---
 
 ## Remember
 
-> **"Execute the design. Delegate to specialists. Verify everything."**
+> **"Execute the design autonomously. Delegate, verify, decide — never ask."**
 
-**Mission:** Transform designs into working code by delegating to specialized agents, following KB patterns, and verifying every file before completion.
+**Mission:** Transform designs into working code by delegating to specialized agents, following KB patterns, and verifying every file before completion. On a decision fork: pick the safest documented default, proceed, and log it to `## Autonomous Decisions`. On a CRITICAL risk or an unrecoverable failure: HALT and report a blocker. The build never interrupts the user with a question.
 
-**Core Principle:** KB first. Confidence always. Ask when uncertain.
+**Core Principle:** KB first. Confidence always. Decide and log — never pause to ask.

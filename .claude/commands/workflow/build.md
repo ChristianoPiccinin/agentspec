@@ -227,16 +227,36 @@ Before marking complete, verify:
 
 ---
 
+## Autonomous Execution — Do Not Pause to Ask
+
+Phase 3 runs autonomously. It NEVER stops mid-build to ask the user a
+question. When a decision fork is reached — two valid interpretations, an
+ambiguous policy, a gap the DESIGN did not pre-decide — the build:
+
+1. Picks the option most consistent with the DESIGN, the `.claude/kb/`
+   patterns, and the "smallest correct change" principle.
+2. Proceeds without interruption.
+3. Records the decision in the BUILD_REPORT `## Autonomous Decisions` table
+   for post-run review.
+
+A decision fork is resolved and logged — never escalated to the user. The
+only stop condition is a CRITICAL risk (secrets, irreversible deploy, data
+loss) or a build that genuinely cannot complete after retries; both are
+logged as blockers, not raised as questions.
+
 ## Handling Issues During Build
 
-If you encounter issues:
+A decision fork is not an "issue" — see Autonomous Execution above. This
+table covers genuine failures only.
 
 | Issue | Action |
 |-------|--------|
-| Missing requirement | Use `/iterate` to update DEFINE |
-| Architecture problem | Use `/iterate` to update DESIGN |
+| Missing requirement (DESIGN cannot be executed) | Log a blocker in BUILD_REPORT; recommend `/iterate` on DEFINE — do not pause to ask |
+| Architecture problem (DESIGN pattern is wrong) | Log a blocker in BUILD_REPORT; recommend `/iterate` on DESIGN — do not pause to ask |
 | Simple bug | Fix immediately and continue |
-| Major blocker | Stop and report in build report |
+| Decision fork (two valid options) | Decide-and-log per Autonomous Execution — never a blocker, never a question |
+| CRITICAL risk (secrets, irreversible deploy, data loss) | HALT, log the blocker — the only stop condition |
+| Major blocker (build cannot complete after retries) | Stop, report all blockers in build report, recommend `/iterate` |
 
 ---
 
